@@ -61,6 +61,7 @@ class Transport;
 class StaticTransport;
 class MotionTransport;
 class PathGenerator;
+class AreaTrigger;
 
 enum WeatherState : uint32;
 
@@ -337,6 +338,8 @@ public:
     template<class T> bool AddToMap(T*, bool checkTransport = false);
     template<class T> void RemoveFromMap(T*, bool);
 
+    bool AddATToMap(AreaTrigger* at);
+
     void VisitNearbyCellsOf(WorldObject* obj, TypeContainerVisitor<Acore::ObjectUpdater, GridTypeMapContainer>& gridVisitor,
                             TypeContainerVisitor<Acore::ObjectUpdater, WorldTypeMapContainer>& worldVisitor,
                             TypeContainerVisitor<Acore::ObjectUpdater, GridTypeMapContainer>& largeGridVisitor,
@@ -357,6 +360,7 @@ public:
     void CreatureRelocation(Creature* creature, float x, float y, float z, float o);
     void GameObjectRelocation(GameObject* go, float x, float y, float z, float o);
     void DynamicObjectRelocation(DynamicObject* go, float x, float y, float z, float o);
+    void AreaTriggerRelocation(AreaTrigger* at, float x, float y, float z, float o);
 
     template<class T, class CONTAINER> void Visit(const Cell& cell, TypeContainerVisitor<T, CONTAINER>& visitor);
 
@@ -512,6 +516,7 @@ public:
     Transport* GetTransport(ObjectGuid const guid);
     DynamicObject* GetDynamicObject(ObjectGuid const guid);
     Pet* GetPet(ObjectGuid const guid);
+    AreaTrigger* GetAreaTrigger(ObjectGuid const& guid);
 
     MapStoredObjectTypesContainer& GetObjectsStore() { return _objectsStore; }
 
@@ -520,6 +525,10 @@ public:
 
     typedef std::unordered_multimap<ObjectGuid::LowType, GameObject*> GameObjectBySpawnIdContainer;
     GameObjectBySpawnIdContainer& GetGameObjectBySpawnIdStore() { return _gameobjectBySpawnIdStore; }
+
+    typedef std::unordered_multimap<ObjectGuid::LowType, AreaTrigger*> AreaTriggerBySpawnIdContainer;
+    AreaTriggerBySpawnIdContainer& GetAreaTriggerBySpawnIdStore() { return _areaTriggerBySpawnIdStore; }
+    AreaTriggerBySpawnIdContainer const& GetAreaTriggerBySpawnIdStore() const { return _areaTriggerBySpawnIdStore; }
 
     [[nodiscard]] std::unordered_set<Corpse*> const* GetCorpsesInCell(uint32 cellId) const
     {
@@ -672,10 +681,15 @@ private:
     void RemoveGameObjectFromMoveList(GameObject* go);
     void AddDynamicObjectToMoveList(DynamicObject* go);
     void RemoveDynamicObjectFromMoveList(DynamicObject* go);
+    void AddAreaTriggerToMoveList(AreaTrigger* at, float x, float y, float z, float ang);
+    void RemoveAreaTriggerFromMoveList(AreaTrigger* at);
 
     std::vector<Creature*> _creaturesToMove;
     std::vector<GameObject*> _gameObjectsToMove;
     std::vector<DynamicObject*> _dynamicObjectsToMove;
+
+    bool _areaTriggersToMoveLock;
+    std::vector<AreaTrigger*> _areaTriggersToMove;
 
     [[nodiscard]] bool IsGridLoaded(const GridCoord&) const;
     void EnsureGridCreated_i(const GridCoord&);
@@ -798,6 +812,7 @@ private:
     MapStoredObjectTypesContainer _objectsStore;
     CreatureBySpawnIdContainer _creatureBySpawnIdStore;
     GameObjectBySpawnIdContainer _gameobjectBySpawnIdStore;
+    AreaTriggerBySpawnIdContainer _areaTriggerBySpawnIdStore;
     std::unordered_map<uint32/*cellId*/, std::unordered_set<Corpse*>> _corpsesByCell;
     std::unordered_map<ObjectGuid, Corpse*> _corpsesByPlayer;
     std::unordered_set<Corpse*> _corpseBones;

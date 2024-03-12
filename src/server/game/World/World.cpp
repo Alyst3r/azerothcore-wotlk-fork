@@ -23,6 +23,7 @@
 #include "AccountMgr.h"
 #include "AchievementMgr.h"
 #include "AddonMgr.h"
+#include "AreaTriggerDataStore.h"
 #include "ArenaTeamMgr.h"
 #include "AsyncAuctionListing.h"
 #include "AuctionHouseMgr.h"
@@ -1812,6 +1813,9 @@ void World::SetInitialWorldSettings()
 
     LOG_INFO("server.loading", "Loading Area Trigger Teleport Definitions...");
     sObjectMgr->LoadAreaTriggerTeleports();
+
+    LOG_INFO("server.loading", "Loading dynamic Area Triggers...");
+    sAreaTriggerDataStore->LoadAreaTriggerTemplates();
 
     LOG_INFO("server.loading", "Loading Access Requirements...");
     sObjectMgr->LoadAccessRequirements();                        // must be after item template load

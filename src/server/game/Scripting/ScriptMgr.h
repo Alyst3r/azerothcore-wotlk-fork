@@ -42,6 +42,7 @@
 // Add support old api modules
 #include "AllScriptsObjects.h"
 
+class AreaTrigger;
 class AuctionHouseObject;
 class AuraScript;
 class Battleground;
@@ -552,6 +553,10 @@ public: /* UnitScript */
     void OnUnitEnterEvadeMode(Unit* unit, uint8 why);
     void OnUnitEnterCombat(Unit* unit, Unit* victim);
     void OnUnitDeath(Unit* unit, Unit* killer);
+
+public: /* AreaTriggerEntityScript */
+    //bool CanCreateAreaTriggerAI(uint32 scriptId) const;
+    AreaTriggerAI* GetAreaTriggerAI(AreaTrigger* areaTrigger);
 
 public: /* MovementHandlerScript */
     void OnPlayerMove(Player* player, MovementInfo movementInfo, uint32 opcode);

@@ -32,6 +32,8 @@
 #include "icecrown_citadel.h"
 #include "GridNotifiersImpl.h"
 
+class OnlyOnceAreaTriggerScript;
+
 enum Texts
 {
     // Highlord Tirion Fordring (at Light's Hammer)
@@ -3746,7 +3748,7 @@ class at_icc_spire_frostwyrm : public OnlyOnceAreaTriggerScript
 public:
     at_icc_spire_frostwyrm() : OnlyOnceAreaTriggerScript("at_icc_spire_frostwyrm") { }
 
-    bool _OnTrigger(Player* player, AreaTrigger const* areaTrigger) override
+    bool OnTrigger(Player* player, AreaTrigger const* areaTrigger) override
     {
         if (player->GetInstanceScript()->GetPersistentData(DATA_SPIRE_FROSTWYRM) != DONE)
         {

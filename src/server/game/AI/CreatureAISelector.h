@@ -32,6 +32,7 @@ namespace FactorySelector
     AC_GAME_API CreatureAI* SelectAI(Creature* creature);
     AC_GAME_API MovementGenerator* SelectMovementGenerator(Unit* unit);
     AC_GAME_API GameObjectAI* SelectGameObjectAI(GameObject* go);
+    AC_GAME_API AreaTriggerAI* SelectAreaTriggerAI(AreaTrigger* at);
 }
 
 #endif

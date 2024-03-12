@@ -28,6 +28,7 @@
 #include "AllItemScript.h"
 #include "AllMapScript.h"
 #include "AllSpellScript.h"
+#include "AreaTriggerEntityScript.h"
 #include "AreaTriggerScript.h"
 #include "ArenaScript.h"
 #include "ArenaTeamScript.h"

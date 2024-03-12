@@ -15,6 +15,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "AreaTrigger.h"
+#include "AreaTriggerAI.h"
+#include "AreaTriggerTemplate.h"
+#include "AreaTriggerEntityScript.h"
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
 #include "Battleground.h"
@@ -28,6 +32,7 @@
 #include "Group.h"
 #include "Pet.h"
 #include "ReputationMgr.h"
+#include "ScriptMgr.h"
 #include "SkillDiscovery.h"
 #include "SpellAuraEffects.h"
 #include "SpellScript.h"
@@ -47,6 +52,22 @@
 //  there is probably some underlying problem with imports which should properly addressed
 //  see: https://github.com/azerothcore/azerothcore-wotlk/issues/9766
 #include "GridNotifiersImpl.h"
+
+// Test - Sigil of Flame
+struct at_dh_sigil_of_flame : public AreaTriggerAI
+{
+    at_dh_sigil_of_flame(AreaTrigger* areatrigger) : AreaTriggerAI(areatrigger) { }
+
+    void OnRemove() override
+    {
+        Unit* caster = at->GetCaster();
+
+        if (!caster)
+            return;
+
+        caster->CastSpell(at->GetPositionX(), at->GetPositionY(), at->GetPositionZ(), 100001, true);
+    }
+};
 
 // 46642 - 5,000 Gold
 class spell_gen_5000_gold : public SpellScript
@@ -5287,5 +5308,6 @@ void AddSC_generic_spell_scripts()
     RegisterSpellScript(spell_gen_jubling_cooldown);
     RegisterSpellScript(spell_gen_yehkinya_bramble);
     RegisterSpellScript(spell_gen_choking_vines);
+    RegisterAreaTriggerAI(at_dh_sigil_of_flame);
 }
 

@@ -23,6 +23,8 @@
 #include "SpellScriptLoader.h"
 #include "temple_of_ahnqiraj.h"
 
+class OnlyOnceAreaTriggerScript;
+
 enum Spells
 {
     // Both

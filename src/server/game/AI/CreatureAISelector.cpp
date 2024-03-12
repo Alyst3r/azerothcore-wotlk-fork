@@ -18,11 +18,9 @@
 #include "CreatureAISelector.h"
 #include "Creature.h"
 #include "CreatureAIFactory.h"
-
 #include "MovementGenerator.h"
-
 #include "GameObject.h"
-
+#include "AreaTriggerAI.h"
 #include "ScriptMgr.h"
 
 namespace FactorySelector
@@ -53,9 +51,10 @@ namespace FactorySelector
     template <class AI, class T>
     inline FactoryHolder<AI, T> const* SelectFactory(T* obj)
     {
-        static_assert(std::is_same<AI, CreatureAI>::value || std::is_same<AI, GameObjectAI>::value, "Invalid template parameter");
+        static_assert(std::is_same<AI, CreatureAI>::value || std::is_same<AI, GameObjectAI>::value || std::is_same<AI, AreaTriggerAI>::value, "Invalid template parameter");
         static_assert(std::is_same<AI, CreatureAI>::value == std::is_same<T, Creature>::value, "Incompatible AI for type");
         static_assert(std::is_same<AI, GameObjectAI>::value == std::is_same<T, GameObject>::value, "Incompatible AI for type");
+        static_assert(std::is_same<AI, AreaTriggerAI>::value == std::is_same<T, AreaTrigger>::value, "Incompatible AI for type");
 
         using AIRegistry = typename FactoryHolder<AI, T>::FactoryHolderRegistry;
 
@@ -106,5 +105,13 @@ namespace FactorySelector
             return scriptedAI;
 
         return SelectFactory<GameObjectAI>(go)->Create(go);
+    }
+
+    AreaTriggerAI* SelectAreaTriggerAI(AreaTrigger* at)
+    {
+        if (AreaTriggerAI* ai = sScriptMgr->GetAreaTriggerAI(at))
+            return ai;
+
+        return SelectFactory<AreaTriggerAI>(at)->Create(at);
     }
 }

@@ -18,6 +18,7 @@
 #ifndef _OBJECTMGR_H
 #define _OBJECTMGR_H
 
+#include "AreaTrigger.h"
 #include "Bag.h"
 #include "ConditionMgr.h"
 #include "Corpse.h"
@@ -40,6 +41,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <span>
 #include <string>
 
 class Item;
@@ -417,20 +419,6 @@ struct AreaTriggerTeleport
     float  target_Orientation;
 };
 
-struct AreaTrigger
-{
-    uint32 entry;
-    uint32 map;
-    float x;
-    float y;
-    float z;
-    float radius;
-    float length;
-    float width;
-    float height;
-    float orientation;
-};
-
 struct BroadcastText
 {
     BroadcastText()
@@ -479,6 +467,7 @@ struct CellObjectGuids
 {
     CellGuidSet creatures;
     CellGuidSet gameobjects;
+    CellGuidSet areatriggers;
 };
 
 typedef std::unordered_map<uint32/*cell_id*/, CellObjectGuids> CellObjectGuidsMap;
@@ -723,6 +712,23 @@ static constexpr uint32 MAX_QUEST_MONEY_REWARDS = 10;
 typedef std::array<uint32, MAX_QUEST_MONEY_REWARDS> QuestMoneyRewardArray;
 typedef std::unordered_map<uint32, QuestMoneyRewardArray> QuestMoneyRewardStore;
 
+// hater: area triggers
+struct CurveEntry
+{
+    uint32 ID;
+    uint8 Type;
+    uint8 Flags;
+};
+
+struct CurvePointEntry
+{
+    DBCPosition2D Pos;
+    DBCPosition2D PreSLSquishPos;
+    uint32 ID;
+    uint32 CurveID;
+    uint8 OrderIndex;
+};
+
 class PlayerDumpReader;
 
 class ObjectMgr
@@ -740,7 +746,7 @@ public:
 
     typedef std::unordered_map<uint32, Quest*> QuestMap;
 
-    typedef std::unordered_map<uint32, AreaTrigger> AreaTriggerContainer;
+    typedef std::unordered_map<uint32, AreaTrigger*> AreaTriggerContainer;
 
     typedef std::unordered_map<uint32, AreaTriggerTeleport> AreaTriggerTeleportContainer;
 
@@ -861,7 +867,7 @@ public:
     {
         AreaTriggerContainer::const_iterator itr = _areaTriggerStore.find(trigger);
         if (itr != _areaTriggerStore.end())
-            return &itr->second;
+            return itr->second;
         return nullptr;
     }
 
@@ -1444,6 +1450,160 @@ public:
 
     [[nodiscard]] uint32 GetQuestMoneyReward(uint8 level, uint32 questMoneyDifficulty) const;
     void SendServerMail(Player* player, uint32 id, uint32 reqLevel, uint32 reqPlayTime, uint32 rewardMoneyA, uint32 rewardMoneyH, uint32 rewardItemA, uint32 rewardItemCountA, uint32 rewardItemH, uint32 rewardItemCountH, std::string subject, std::string body, uint8 active) const;
+
+    CurveEntry* GetCurve(uint32 id) {
+        auto curve = _curves.find(id);
+        return curve != _curves.end() ? curve->second : nullptr;
+    }
+
+    static CurveInterpolationMode DetermineCurveType(CurveEntry const* curve, std::vector<DBCPosition2D> const& points)
+    {
+        switch (curve->Type)
+        {
+        case 1:
+            return points.size() < 4 ? CurveInterpolationMode::Cosine : CurveInterpolationMode::CatmullRom;
+        case 2:
+        {
+            switch (points.size())
+            {
+            case 1:
+                return CurveInterpolationMode::Constant;
+            case 2:
+                return CurveInterpolationMode::Linear;
+            case 3:
+                return CurveInterpolationMode::Bezier3;
+            case 4:
+                return CurveInterpolationMode::Bezier4;
+            default:
+                break;
+            }
+            return CurveInterpolationMode::Bezier;
+        }
+        case 3:
+            return CurveInterpolationMode::Cosine;
+        default:
+            break;
+        }
+
+        return points.size() != 1 ? CurveInterpolationMode::Linear : CurveInterpolationMode::Constant;
+    }
+
+    float GetCurveValueAt(uint32 curveId, float x) {
+        auto itr = _curvePoints.find(curveId);
+        if (itr == _curvePoints.end())
+            return 0.0f;
+
+        CurveEntry const* curve = GetCurve(curveId);
+        std::vector<DBCPosition2D> const& points = itr->second;
+        if (points.empty())
+            return 0.0f;
+
+        return GetCurveValueAt(DetermineCurveType(curve, points), points, x);
+    }
+
+    float GetCurveValueAt(CurveInterpolationMode mode, std::span<DBCPosition2D const> points, float x) const
+    {
+        switch (mode)
+        {
+        case CurveInterpolationMode::Linear:
+        {
+            std::size_t pointIndex = 0;
+            while (pointIndex < points.size() && points[pointIndex].X <= x)
+                ++pointIndex;
+            if (!pointIndex)
+                return points[0].Y;
+            if (pointIndex >= points.size())
+                return points.back().Y;
+            float xDiff = points[pointIndex].X - points[pointIndex - 1].X;
+            if (xDiff == 0.0)
+                return points[pointIndex].Y;
+            return (((x - points[pointIndex - 1].X) / xDiff) * (points[pointIndex].Y - points[pointIndex - 1].Y)) + points[pointIndex - 1].Y;
+        }
+        case CurveInterpolationMode::Cosine:
+        {
+            std::size_t pointIndex = 0;
+            while (pointIndex < points.size() && points[pointIndex].X <= x)
+                ++pointIndex;
+            if (!pointIndex)
+                return points[0].Y;
+            if (pointIndex >= points.size())
+                return points.back().Y;
+            float xDiff = points[pointIndex].X - points[pointIndex - 1].X;
+            if (xDiff == 0.0)
+                return points[pointIndex].Y;
+            return ((points[pointIndex].Y - points[pointIndex - 1].Y) * (1.0f - std::cos((x - points[pointIndex - 1].X) / xDiff * float(M_PI))) * 0.5f) + points[pointIndex - 1].Y;
+        }
+        case CurveInterpolationMode::CatmullRom:
+        {
+            std::size_t pointIndex = 1;
+            while (pointIndex < points.size() && points[pointIndex].X <= x)
+                ++pointIndex;
+            if (pointIndex == 1)
+                return points[1].Y;
+            if (pointIndex >= points.size() - 1)
+                return points[points.size() - 2].Y;
+            float xDiff = points[pointIndex].X - points[pointIndex - 1].X;
+            if (xDiff == 0.0)
+                return points[pointIndex].Y;
+
+            float mu = (x - points[pointIndex - 1].X) / xDiff;
+            float a0 = -0.5f * points[pointIndex - 2].Y + 1.5f * points[pointIndex - 1].Y - 1.5f * points[pointIndex].Y + 0.5f * points[pointIndex + 1].Y;
+            float a1 = points[pointIndex - 2].Y - 2.5f * points[pointIndex - 1].Y + 2.0f * points[pointIndex].Y - 0.5f * points[pointIndex + 1].Y;
+            float a2 = -0.5f * points[pointIndex - 2].Y + 0.5f * points[pointIndex].Y;
+            float a3 = points[pointIndex - 1].Y;
+
+            return a0 * mu * mu * mu + a1 * mu * mu + a2 * mu + a3;
+        }
+        case CurveInterpolationMode::Bezier3:
+        {
+            float xDiff = points[2].X - points[0].X;
+            if (xDiff == 0.0)
+                return points[1].Y;
+            float mu = (x - points[0].X) / xDiff;
+            return ((1.0f - mu) * (1.0f - mu) * points[0].Y) + (1.0f - mu) * 2.0f * mu * points[1].Y + mu * mu * points[2].Y;
+        }
+        case CurveInterpolationMode::Bezier4:
+        {
+            float xDiff = points[3].X - points[0].X;
+            if (xDiff == 0.0)
+                return points[1].Y;
+            float mu = (x - points[0].X) / xDiff;
+            return (1.0f - mu) * (1.0f - mu) * (1.0f - mu) * points[0].Y
+                + 3.0f * mu * (1.0f - mu) * (1.0f - mu) * points[1].Y
+                + 3.0f * mu * mu * (1.0f - mu) * points[2].Y
+                + mu * mu * mu * points[3].Y;
+        }
+        case CurveInterpolationMode::Bezier:
+        {
+            float xDiff = points.back().X - points[0].X;
+            if (xDiff == 0.0f)
+                return points.back().Y;
+
+            std::vector<float> tmp(points.size());
+            for (std::size_t i = 0; i < points.size(); ++i)
+                tmp[i] = points[i].Y;
+
+            float mu = (x - points[0].X) / xDiff;
+            int32 i = int32(points.size()) - 1;
+            while (i > 0)
+            {
+                for (int32 k = 0; k < i; ++k)
+                {
+                    float val = tmp[k] + mu * (tmp[k + 1] - tmp[k]);
+                    tmp[k] = val;
+                }
+                --i;
+            }
+            return tmp[0];
+        }
+        case CurveInterpolationMode::Constant:
+            return points[0].Y;
+        default:
+            break;
+        }
+
+        return 0.0f;
+    }
 private:
     // first free id for selected id type
     uint32 _auctionId; // pussywizard: accessed by a single thread
@@ -1609,6 +1769,12 @@ private:
 
     std::set<uint32> _difficultyEntries[MAX_DIFFICULTY - 1]; // already loaded difficulty 1 value in creatures, used in CheckCreatureTemplate
     std::set<uint32> _hasDifficultyEntries[MAX_DIFFICULTY - 1]; // already loaded creatures with difficulty 1 values, used in CheckCreatureTemplate
+
+    // hater: areatriggers
+    std::unordered_map<uint32, CurveEntry*> _curves;
+
+    typedef std::unordered_map<uint32 /*curveID*/, std::vector<DBCPosition2D>> CurvePointsContainer;
+    CurvePointsContainer _curvePoints;
 
     enum CreatureLinkedRespawnType
     {

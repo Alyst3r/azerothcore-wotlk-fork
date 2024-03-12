@@ -15,8 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCRIPT_OBJECT_AREA_TRIGGER_SCRIPT_H_
-#define SCRIPT_OBJECT_AREA_TRIGGER_SCRIPT_H_
+#pragma once
 
 #include "ScriptObject.h"
 
@@ -37,12 +36,10 @@ class OnlyOnceAreaTriggerScript : public AreaTriggerScript
     using AreaTriggerScript::AreaTriggerScript;
 
 public:
-    [[nodiscard]] bool OnTrigger(Player* /*player*/, AreaTrigger const* /*trigger*/) override;
+    bool OnTrigger(Player* player, AreaTrigger const* trigger) override { return _OnTrigger(player, trigger); };
+    virtual bool _OnTrigger(Player* player, AreaTrigger const* trigger) { return false; }
 
 protected:
-    virtual bool _OnTrigger(Player* /*player*/, AreaTrigger const* /*trigger*/) = 0;
     void ResetAreaTriggerDone(InstanceScript* /*instance*/, uint32 /*triggerId*/);
     void ResetAreaTriggerDone(Player const* /*player*/, AreaTrigger const* /*trigger*/);
 };
-
-#endif
